@@ -15,15 +15,7 @@
  */
 package io.seata.rm.datasource.sql.struct;
 
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.NClob;
-import java.sql.Ref;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.Types;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +26,8 @@ import javax.sql.rowset.serial.SerialDatalink;
 import javax.sql.rowset.serial.SerialJavaObject;
 import javax.sql.rowset.serial.SerialRef;
 import io.seata.common.exception.ShouldNeverHappenException;
+import io.seata.rm.datasource.ConnectionProxy;
+import io.seata.rm.datasource.StatementProxy;
 import io.seata.rm.datasource.sql.serial.SerialArray;
 
 /**
@@ -174,6 +168,10 @@ public class TableRecords implements java.io.Serializable {
         return new EmptyTableRecords(tableMeta);
     }
 
+    public static TableRecords buildRecords(TableMeta tmeta, ResultSet resultSet) throws SQLException {
+        return buildRecords(tmeta, resultSet, null);
+    }
+
     /**
      * Build records table records.
      *
@@ -182,7 +180,7 @@ public class TableRecords implements java.io.Serializable {
      * @return the table records
      * @throws SQLException the sql exception
      */
-    public static TableRecords buildRecords(TableMeta tmeta, ResultSet resultSet) throws SQLException {
+    public static TableRecords buildRecords(TableMeta tmeta, ResultSet resultSet, StatementProxy statementProxy) throws SQLException {
         TableRecords records = new TableRecords(tmeta);
         ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
         int columnCount = resultSetMetaData.getColumnCount();
@@ -192,6 +190,15 @@ public class TableRecords implements java.io.Serializable {
             for (int i = 1; i <= columnCount; i++) {
                 String colName = resultSetMetaData.getColumnName(i);
                 ColumnMeta col = tmeta.getColumnMeta(colName);
+                if (col == null){
+                    ConnectionProxy connectionProxy = statementProxy.getConnectionProxy();
+                    String dbType = connectionProxy.getDbType();
+                    Connection targetConnection = connectionProxy.getTargetConnection();
+                    String resourceId = connectionProxy.getDataSourceProxy().getResourceId();
+                    TableMetaCacheFactory.getTableMetaCache(dbType).refresh(targetConnection, resourceId);
+                    tmeta = TableMetaCacheFactory.getTableMetaCache(dbType).getTableMeta(targetConnection, tmeta.getTableName(), resourceId);
+                    col = tmeta.getColumnMeta(colName);
+                }
                 int dataType = col.getDataType();
                 Field field = new Field();
                 field.setName(col.getColumnName());

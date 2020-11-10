@@ -249,9 +249,9 @@ public abstract class AbstractStatementProxy<T extends Statement> implements Sta
 
     @Override
     public ResultSet getGeneratedKeys() throws SQLException {
-        if (generatedKeysRowSet != null) {
-            return generatedKeysRowSet;
-        }
+        // if (generatedKeysRowSet != null) {
+        //     return generatedKeysRowSet;
+        // }
         ResultSet rs = targetStatement.getGeneratedKeys();
         generatedKeysRowSet = RowSetProvider.newFactory().createCachedRowSet();
         generatedKeysRowSet.populate(rs);
